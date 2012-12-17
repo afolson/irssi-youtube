@@ -4,8 +4,6 @@
 # and
 # Automatic YouTube by Louis T. http://ltdev.im/
 
-# TODO:
-# Clean up source
 use strict;
 use Irssi;
 use WWW::Mechanize;
@@ -13,22 +11,17 @@ use JSON -support_by_pp;
 use Time::Duration;
 use Class::Date qw(:errors date -EnvC);
 use Number::Format qw(:subs :vars);
-
-
-
 use HTML::Entities;
-use URI;
-use URI::QueryParam;
 use Regexp::Common qw/URI/;
 
-my $VERSION = '0.1';
+my $VERSION = '0.2';
 
 my %IRSSI = (
 	authors		=> 'Amanda Folson',
 	contact		=> 'amanda.folson@gmail.com',
-	name		=> 'youtube-preview',
-	uri			=> 'https://github.com/afolson/youtube-preview',
-	description	=> 'prints the title of a youtube video automatically',
+	name		=> 'irssi-youtube',
+	uri		=> 'https://github.com/afolson/irssi-youtube/',
+	description	=> 'An Irssi script to display data about YouTube videos.',
 	license		=> 'WTFPL',
 );
 
@@ -42,8 +35,8 @@ sub callback {
 	my($server, $msg, $nick, $address, $target) = @_;
 	$target=$nick if $target eq undef;
 	if(Irssi::settings_get_bool('yt_print_links')) {
-			# A wild YouTube link appears! Irssi used PARSE. It's super effective!
-			process($server, $target, $_) for (getID($msg));
+		# A wild YouTube link appears! Irssi used PARSE. It's super effective!
+		process($server, $target, $_) for (getID($msg));
 	}
 }
 
@@ -57,12 +50,14 @@ sub own_callback {
 
 sub process {
 	my ($server, $target, $id) = @_;
-	my $yt = getInfo($id);	
-	if(exists $yt->{error}) {
-		print_error($server, $target, $yt->{error});
-	}
-	else {
-		printInfo($server, $target, $yt->{title}, $yt->{duration}, $yt->{views}, $yt->{rating}, $yt->{raters}, $yt->{likes}, $yt->{dislikes}, $yt->{author}, $yt->{date});
+	my $yt = getInfo($id);
+	if ($yt != 0) {
+		if(exists $yt->{error}) {
+			print_error($server, $target, $yt->{error});
+		}
+		else {
+			printInfo($server, $target, $yt->{title}, $yt->{duration}, $yt->{views}, $yt->{rating}, $yt->{raters}, $yt->{likes}, $yt->{dislikes}, $yt->{author}, $yt->{date});
+		}
 	}
 }
 
@@ -71,7 +66,6 @@ sub print_error {
 	$server->window_item_find($target)->printformat(MSGLEVEL_CLIENTCRAP, 'yt_error', $msg);
 }
 sub getID {
-
 	my $string = shift;
 	if ($string =~ m/(?:https?:\/\/)?(?:www.)?youtu(?:\.be\/|be\.com\/(?:watch\?.*?v=)?)([^\?#&\s]+)/i) {
 		return $1;
@@ -87,15 +81,6 @@ sub printInfo {
 	foreach $item (@_) {
 		decode_entities($item);
 	} 
-# 	$title = decode_entities($title);
-# 	$duration = decode_entities($duration);
-# 	$views = decode_entities($views);
-# 	$rating = decode_entities($rating);
-# 	$raters = decode_entities($raters);
-# 	$likes = decode_entities($likes);
-# 	$dislikes = decode_entities($dislikes);
-# 	$author = decode_entities($author);
-# 	$date = decode_entities($date);
 	$server->window_item_find($target)->printformat(MSGLEVEL_CLIENTCRAP, 'youtube_info', $title, $duration, $views, $rating, $raters, $likes, $dislikes, $author, $date);
 }
 
@@ -158,7 +143,6 @@ sub getInfo {
 					$author = $data->{'author'}->[0]->{'name'}->{'$t'};
 					if ($data->{'published'}->{'$t'}) {
 						$date = date($data->{'published'}->{'$t'});
-						# ?
 						$Class::Date::DATE_FORMAT=undef;
 					}
 				}
@@ -182,19 +166,18 @@ sub getInfo {
 		}
 	}
 	else {
-		return {error => 'Error IRL.'};
+		return {error => 'Unable to fetch data.'};
 	}
 }
 
 Irssi::theme_register([
 	'youtube_info', '%yYouTube:%n Title: $0 - Duration: $1 - Views: $2 - Rating: $3 (%g$4%n/%r$5%n) Favorites: $6 by $7 ($8)',
-	'yt_error', '%rError fetching youtube title:%n $0',
+	'yt_error', '%rError fetching YouTube data:%n $0',
 ]);
 
-
-# Oh lawd is dat sum CALLBACK
+# Public and private messages sent to us
 Irssi::signal_add("message public", \&callback);
 Irssi::signal_add("message private", \&callback);
-
+# Public and private messages sent from us
 Irssi::signal_add("message own_public", \&own_callback);
 Irssi::signal_add("message own_private", \&own_callback);
